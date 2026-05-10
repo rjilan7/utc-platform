@@ -1,0 +1,926 @@
+# أوامر Codex لبناء نظام إدارة برنامج UTC
+
+## الأمر 1: إنشاء المشروع
+
+```text
+Create a full-stack Arabic RTL SaaS web application for managing the UTC children's strengths assessment program.
+
+Use:
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- Prisma ORM
+- PostgreSQL
+- NextAuth or Auth.js for authentication
+- Role-based access control
+- Multi-tenant architecture
+
+The system must support multiple organizations. Each organization has its own users and data. Super Admin can see all organizations. Organization users can only see their own organization data.
+
+The UI must be fully Arabic RTL.
+
+Brand colors:
+- Berry: #D6085C
+- Ocean: #007AA9
+- Sun: #F8D942
+- Cloud: #EFEFE8
+- Black: #1D1D1B
+```
+
+## الأمر 2: إنشاء الأدوار والصلاحيات
+
+```text
+Implement role-based access control with the following roles:
+
+1. SUPER_ADMIN
+- Can manage all organizations
+- Can manage all users
+- Can view all dashboards
+- Can view and export all reports
+- Can override workflow restrictions
+
+2. ORG_ADMIN
+- Can manage only their organization
+- Can add children
+- Can manage supervisors
+- Can enter assessment results
+- Can manage groups
+- Can view organization reports
+
+3. SUPERVISOR
+- Can view assigned children
+- Can confirm story completion
+- Can add child notes
+- Can confirm exercise completion
+- Can upload attachments
+
+4. TRAINER
+- Can manage training sessions
+- Can confirm attendance
+- Can manage exercise schedules
+
+Every API route must validate:
+- logged-in user
+- role permissions
+- organization ownership
+```
+
+## الأمر 3: Prisma schema
+
+```text
+Create a Prisma schema with the following models:
+
+Organization:
+id, name, type, city, contactName, contactPhone, contactEmail, childrenTargetCount, startDate, expectedEndDate, status, createdAt, updatedAt
+
+User:
+id, organizationId nullable, name, email, phone, passwordHash, role, status, createdAt, updatedAt
+
+Child:
+id, organizationId, name, internalCode, age, gender, grade, motherName, motherPhone, supervisorId nullable, programStatus, createdAt, updatedAt
+
+Story:
+id, storyNumber, title, description, createdAt, updatedAt
+
+ChildStory:
+id, childId, storyId, status, completedAt nullable, confirmedBy nullable, notes nullable, createdAt, updatedAt
+
+Strength:
+id, name, description, color, sortOrder, isActive, createdAt, updatedAt
+
+Assessment:
+id, childId, status, enteredBy nullable, enteredAt nullable, strength1Id nullable, strength2Id nullable, strength3Id nullable, reportUrl nullable, notes nullable, createdAt, updatedAt
+
+Group:
+id, organizationId, name, strengthId, supervisorId nullable, trainerId nullable, status, createdAt, updatedAt
+
+GroupChild:
+id, groupId, childId, createdAt
+
+TrainingSession:
+id, organizationId, title, date, time, trainerId nullable, targetAudience, status, createdAt, updatedAt
+
+TrainingAttendance:
+id, sessionId, attendeeName, attendeeType, phone, childId nullable, status, confirmedAt nullable, notes nullable, createdAt, updatedAt
+
+Exercise:
+id, strengthId, title, description, duration, toolsRequired, instructions, successIndicators, createdAt, updatedAt
+
+ExerciseSchedule:
+id, groupId, exerciseId, date, time, assignedTo nullable, status, completedAt nullable, notes nullable, createdAt, updatedAt
+
+Attachment:
+id, organizationId, relatedType, relatedId, fileUrl, fileType, uploadedBy, createdAt
+
+ActivityLog:
+id, userId, organizationId nullable, action, entityType, entityId, createdAt
+
+Notification:
+id, organizationId nullable, title, message, type, status, createdAt, readAt nullable
+
+Use enums where appropriate for role, status, programStatus, storyStatus, assessmentStatus, groupStatus, sessionStatus, attendanceStatus, exerciseScheduleStatus.
+```
+
+## الأمر 4: Seed Data
+
+```text
+Create seed data for development:
+
+- 1 SUPER_ADMIN user
+- 3 organizations
+- 3 ORG_ADMIN users, one for each organization
+- 5 supervisors
+- 3 trainers
+- 50 children distributed across organizations
+- 10 strengths:
+  الثقة، الحضور، القيادة، التفكير، الإبداع، التعاون، المبادرة، المرونة، التركيز، التواصل
+- 40 stories with story numbers from 1 to 40
+- 20 exercises linked to strengths
+- 3 training sessions
+- Sample child stories progress
+- Sample assessment results for some children
+- Sample groups based on strength 1
+```
+
+## الأمر 5: تسجيل الدخول والحماية
+
+```text
+Implement authentication pages:
+- /login
+- /logout
+
+After login:
+- SUPER_ADMIN redirects to /admin/dashboard
+- ORG_ADMIN redirects to /org/dashboard
+- SUPERVISOR redirects to /org/children
+- TRAINER redirects to /org/training
+
+Protect all routes using middleware.
+
+Rules:
+- SUPER_ADMIN can access all admin routes
+- Organization users can only access records where organizationId equals their organizationId
+- If a user tries to access another organization’s data, return 403
+```
+
+
+## الأمر 6: لوحة إدارة UTC
+
+```text
+Build /admin/dashboard.
+
+It must show cards for:
+- Total organizations
+- Active organizations
+- Total children
+- Children who completed all stories
+- Story completion percentage
+- Children with completed assessments
+- Assessment completion percentage
+- Total groups
+- Training sessions completed
+- Attendance percentage
+- Exercises completed
+- Overall program completion percentage
+
+Add charts:
+- Organization progress comparison
+- Children distribution by strength 1
+- Delayed organizations
+- Completion by program stage
+
+Add filters:
+- City
+- Organization type
+- Program status
+- Start date
+- Completion percentage
+
+Add a table:
+Organizations sorted by lowest completion percentage first.
+```
+
+## الأمر 7: لوحة الجهة
+
+```text
+Build /org/dashboard.
+
+It must show only the logged-in user's organization data.
+
+Show:
+- Total children
+- Children story completion percentage
+- Children assessment completion percentage
+- Strength distribution based on strength 1
+- Number of groups
+- Training attendance percentage
+- Scheduled exercises
+- Completed exercises
+- Current program stage
+- Alerts and notifications
+
+Add a progress bar with these stages:
+1. تسجيل الأطفال
+2. إتمام القصص
+3. إدخال المقياس
+4. تكوين المجموعات
+5. تدريب الأمهات والمربيات
+6. تنفيذ التمارين
+7. التقرير النهائي
+```
+
+## الأمر 8: إدارة الجهات
+
+```text
+Build CRUD pages for organizations under /admin/organizations.
+
+Pages:
+- List organizations
+- Create organization
+- Edit organization
+- Organization details
+
+Organization details must show:
+- Organization data
+- Children count
+- Program status
+- Story progress
+- Assessment progress
+- Strength distribution
+- Groups
+- Training sessions
+- Exercise progress
+- Attachments
+- Reports
+- Activity logs
+
+Only SUPER_ADMIN can access these pages.
+```
+
+## الأمر 9: إدارة الأطفال
+
+```text
+Build /org/children.
+
+Features:
+- List children
+- Add child
+- Edit child
+- View child details
+- Filter by supervisor
+- Filter by age
+- Filter by story completion
+- Filter by assessment status
+- Filter by strength 1
+- Filter by group
+- Search by child name, mother name, internal code
+
+Child fields:
+name, internalCode, age, gender, grade, motherName, motherPhone, supervisorId, programStatus
+
+When a child is created:
+- Automatically create 40 ChildStory records for this child.
+- Create an Assessment record with status NOT_STARTED.
+- Log the action in ActivityLog.
+```
+
+## الأمر 10: استيراد الأطفال من Excel
+
+```text
+Add Excel import for children.
+
+Create /org/children/import.
+
+The user uploads an Excel file with columns:
+- child_name
+- internal_code
+- age
+- gender
+- grade
+- mother_name
+- mother_phone
+- supervisor_email
+
+Validate:
+- Required fields
+- Duplicate internal codes inside organization
+- Supervisor exists
+
+Show preview before saving.
+
+After confirmation:
+- Create children
+- Create 40 ChildStory records for each child
+- Create initial Assessment record for each child
+- Show import summary
+```
+
+
+## الأمر 11: صفحة الطفل
+
+```text
+Build /org/children/[id].
+
+Show:
+- Child profile
+- Mother data
+- Supervisor
+- Program status
+- Story progress:
+  completed stories count out of 40
+  completion percentage
+- Assessment status
+- Strength 1
+- Strength 2
+- Strength 3
+- Assigned group
+- Exercise schedules
+- Completed exercises
+- Notes
+- Attachments
+- Activity logs
+
+Add actions:
+- Confirm stories
+- Enter assessment
+- View group
+- Add note
+- Upload attachment
+```
+
+## الأمر 12: متابعة القصص
+
+```text
+Build story tracking UI.
+
+In child details page, display all 40 stories.
+
+For each story show:
+- Story number
+- Title
+- Status:
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+- Completed date
+- Confirmed by
+- Notes
+
+Allow SUPERVISOR and ORG_ADMIN to:
+- Mark story as completed
+- Add notes
+- Edit status
+
+When story is completed:
+- Save completedAt
+- Save confirmedBy
+- Log activity
+
+Calculate child story completion percentage automatically.
+
+If all 40 stories are completed:
+- Set child programStatus to STORIES_COMPLETED.
+```
+
+## الأمر 13: إدخال نتائج المقياس بطريقة بطاقات
+
+```text
+Build /org/children/[id]/assessment.
+
+The page must show all 10 strengths as interactive cards.
+
+Each card shows:
+- Strength name
+- Short description
+- Color
+- Three buttons:
+  "الأولى"
+  "الثانية"
+  "الثالثة"
+
+The user must select exactly:
+- One strength as strength 1
+- One strength as strength 2
+- One strength as strength 3
+
+Rules:
+- The same strength cannot be selected more than once.
+- If a strength is selected as first, disable it for second and third.
+- If a strength is selected as second, disable it for first and third.
+- If a strength is selected as third, disable it for first and second.
+- Show selected cards clearly.
+- Add confirmation before final save.
+
+Do not use manual text inputs for strengths.
+```
+
+## الأمر 14: قاعدة إتمام القصص قبل المقياس
+
+```text
+Implement this business rule:
+
+Assessment results cannot be entered unless the child has completed all 40 stories.
+
+Exception:
+SUPER_ADMIN can override this restriction.
+
+If user tries to enter assessment before story completion:
+Show Arabic message:
+"لا يمكن إدخال نتائج المقياس قبل إتمام جميع القصص."
+
+Add override option only for SUPER_ADMIN.
+```
+
+## الأمر 15: حفظ نتائج المقياس والتوزيع التلقائي
+
+```text
+When assessment is saved:
+
+Save:
+- strength1Id
+- strength2Id
+- strength3Id
+- enteredBy
+- enteredAt
+- status COMPLETED
+
+Then automatically assign the child to a group based only on strength1Id.
+
+Logic:
+1. Search for an existing group in the same organization where group.strengthId equals strength1Id.
+2. If group exists, add child to this group.
+3. If group does not exist, show prompt:
+   "لا توجد مجموعة لهذه النقطة. هل ترغب بإنشاء مجموعة جديدة؟"
+4. If user confirms, create group:
+   name = "مجموعة " + strength.name
+   organizationId = child.organizationId
+   strengthId = strength1Id
+   status = NOT_STARTED
+5. Add child to group.
+
+Important:
+- strength2Id and strength3Id must not affect group assignment.
+- strength2Id and strength3Id are only used for reports and analytics.
+
+Update child programStatus to ASSESSMENT_COMPLETED or GROUPED after assignment.
+Log activity.
+```
+
+
+## الأمر 16: إدارة نقاط القوة
+
+```text
+Build /admin/strengths.
+
+SUPER_ADMIN can:
+- Create strength
+- Edit strength
+- Set color
+- Set description
+- Activate or deactivate strength
+- Sort strengths
+
+Show:
+- Name
+- Description
+- Color
+- Number of children where this is strength 1
+- Number of children where this is strength 2
+- Number of children where this is strength 3
+```
+
+## الأمر 17: المجموعات
+
+```text
+Build /org/groups.
+
+Features:
+- List groups
+- Create group
+- Edit group
+- View group details
+- Assign supervisor
+- Assign trainer
+- View children inside group
+- View exercises linked to group strength
+- View exercise progress
+
+Group details page must show:
+- Group name
+- Strength
+- Supervisor
+- Trainer
+- Children count
+- Children list
+- Scheduled exercises
+- Completed exercises
+- Progress percentage
+- Notes
+
+Child can belong to only one main group.
+Main group is based on strength 1.
+```
+
+## الأمر 18: تدريب القوة الثالثة
+
+```text
+Build training session module under /org/training.
+
+Training sessions are for "القوة الثالثة".
+
+Create session fields:
+- title
+- organizationId
+- date
+- time
+- trainerId
+- targetAudience:
+  MOTHERS
+  CAREGIVERS
+  TEACHERS
+  SUPERVISORS
+  MIXED
+- status:
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+
+Allow ORG_ADMIN and TRAINER to create and manage sessions.
+
+Show upcoming sessions and completed sessions.
+```
+
+## الأمر 19: حضور التدريب
+
+```text
+Build attendance page for each training session.
+
+For each attendance record:
+- attendeeName
+- attendeeType:
+  MOTHER
+  CAREGIVER
+  TEACHER
+  SUPERVISOR
+- phone
+- childId nullable
+- status:
+  PRESENT
+  ABSENT
+  EXCUSED
+- notes
+
+Allow TRAINER and ORG_ADMIN to:
+- Add attendees
+- Mark attendance
+- Edit attendance
+
+Calculate attendance percentage per session and per organization.
+
+Show attendance percentage in dashboards.
+```
+
+## الأمر 20: التمارين
+
+```text
+Build exercises module.
+
+Each exercise belongs to one strength.
+
+Exercise fields:
+- strengthId
+- title
+- description
+- duration
+- toolsRequired
+- instructions
+- successIndicators
+
+SUPER_ADMIN can manage the master exercises library.
+
+ORG_ADMIN can view exercises relevant to organization groups.
+```
+
+## الأمر 21: جدولة التمارين للمجموعات
+
+```text
+Build exercise scheduling module under /org/groups/[id]/exercises.
+
+For each group:
+- Show exercises linked to group.strengthId
+- Allow ORG_ADMIN, TRAINER, SUPERVISOR to schedule exercises
+
+ExerciseSchedule fields:
+- groupId
+- exerciseId
+- date
+- time
+- assignedTo
+- status:
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  NOT_DONE
+- completedAt
+- notes
+
+Allow SUPERVISOR to:
+- Mark exercise as completed
+- Add notes
+- Upload attachments
+- Add impact observations
+```
+
+
+## الأمر 22: التنبيهات
+
+```text
+Implement notification system.
+
+Create automatic notifications when:
+- Organization has not started stories after 7 days from startDate
+- Child has less than 50% story completion after 14 days
+- Child completed stories but assessment not entered after 3 days
+- Group created but no exercises scheduled after 7 days
+- Training session is tomorrow
+- Attendance percentage is below 60%
+- Scheduled exercise date passed but not completed
+
+Notifications appear in:
+- Admin dashboard
+- Organization dashboard
+- Organization details page
+
+Each notification has:
+- title
+- message
+- type
+- status unread/read
+- createdAt
+```
+
+## الأمر 23: اقتراحات التحفيز
+
+```text
+In SUPER_ADMIN dashboard, create a section called "جهات تحتاج متابعة".
+
+Show organizations that:
+- Have low completion percentage
+- Are late in stories
+- Are late in assessments
+- Have low training attendance
+- Have pending exercises
+
+For each organization, show suggested action:
+- أرسل تذكيرًا
+- تواصل مع مسؤول الجهة
+- اقترح جلسة دعم
+- حفّز الجهة بإظهار نسبة تقدمها
+- شارك معها تقرير تقدم مختصر
+```
+
+## الأمر 24: التقارير
+
+```text
+Build reports module.
+
+Reports:
+
+1. Organization Report
+Includes:
+- Organization data
+- Number of children
+- Story completion percentage
+- Assessment completion percentage
+- Strength 1 distribution
+- Training attendance
+- Exercise completion
+- Challenges
+- Recommendations
+
+2. Child Report
+Includes:
+- Child data
+- Story completion
+- Assessment status
+- Strength 1
+- Strength 2
+- Strength 3
+- Assigned group
+- Completed exercises
+- Supervisor notes
+
+3. Global Program Report
+For SUPER_ADMIN:
+- All organizations
+- Total children
+- Overall completion
+- Delayed organizations
+- Strength distribution
+- Exercise progress
+- Training attendance
+```
+
+## الأمر 25: تصدير PDF وExcel
+
+```text
+Add export functionality.
+
+Excel exports:
+- Children list
+- Story progress
+- Assessment results
+- Training attendance
+- Exercise schedules
+- Organization progress
+
+PDF exports:
+- Organization report
+- Child report
+- Global report
+
+Important:
+PDF must support Arabic RTL correctly.
+Use a reliable PDF generation method that supports Arabic shaping and RTL.
+Do not output reversed Arabic text.
+```
+
+## الأمر 26: لوحة تقدم الجهة
+
+```text
+Create a visual program progress bar for each organization.
+
+Stages:
+1. تسجيل الأطفال
+2. إتمام القصص
+3. إدخال المقياس
+4. تكوين المجموعات
+5. تدريب الأمهات والمربيات
+6. تنفيذ التمارين
+7. إصدار التقرير النهائي
+
+Each stage has:
+- status:
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  DELAYED
+- percentage
+- last updated date
+
+Show the progress bar in:
+- Organization dashboard
+- Admin organization details page
+```
+
+## الأمر 27: حساب نسبة الإنجاز
+
+```text
+Implement organization completion percentage.
+
+Weights:
+- Children registration: 10%
+- Story completion: 25%
+- Assessment completion: 20%
+- Group creation: 15%
+- Training attendance: 15%
+- Exercise completion: 15%
+
+Total = 100%
+
+Calculate automatically and update dashboards.
+
+Also calculate:
+- child completion percentage
+- group completion percentage
+- global program completion percentage
+```
+
+## الأمر 28: البحث والفلاتر
+
+```text
+Add search and filters to all major tables.
+
+Children filters:
+- organization
+- supervisor
+- age
+- gender
+- program status
+- story completion
+- assessment status
+- strength 1
+- group
+
+Organizations filters:
+- city
+- type
+- status
+- completion percentage
+- start date
+
+Groups filters:
+- strength
+- supervisor
+- trainer
+- status
+
+Training filters:
+- date
+- trainer
+- audience
+- status
+
+Exercise schedules filters:
+- group
+- strength
+- status
+- date
+```
+
+
+## الأمر 29: واجهة SaaS احترافية
+
+```text
+Build a professional Arabic SaaS UI.
+
+Requirements:
+- Full RTL
+- Sidebar navigation
+- Topbar with user menu
+- Dashboard cards
+- Charts
+- Tables
+- Filters
+- Search
+- Progress bars
+- Status badges
+- Modal dialogs
+- Empty states
+- Loading states
+- Responsive mobile and tablet layout
+
+Sidebar items:
+- لوحة التحكم
+- الجهات
+- الأطفال
+- القصص
+- المقياس
+- نقاط القوة
+- المجموعات
+- التدريب
+- الحضور
+- التمارين
+- التقارير
+- المستخدمون
+- الإعدادات
+```
+
+## الأمر 30: الاختبارات
+
+```text
+Add automated tests for:
+
+- Multi-tenant data isolation
+- User role permissions
+- Assessment cannot be entered before all stories are completed
+- Strength selection prevents duplicates
+- Child auto assignment to group based on strength 1
+- Strength 2 and strength 3 do not affect group assignment
+- Organization completion percentage calculation
+- Dashboard metrics accuracy
+```
+
+## الأمر 31: التوثيق
+
+```text
+Create README.md.
+
+Include:
+- Project overview
+- Tech stack
+- Installation steps
+- Environment variables
+- Database setup
+- Seed command
+- Default users
+- Roles and permissions
+- Main workflows
+- How to run tests
+- How to deploy
+```
+
+## الأمر المختصر النهائي
+
+```text
+Build a full Arabic RTL multi-tenant SaaS system for UTC children's strengths assessment program.
+
+Each organization has its own username/password and private dashboard. Organization users enter children data, track 40 stories per child, enter assessment results using interactive strength cards, select strength 1, strength 2, and strength 3, and the system automatically assigns the child to the group of strength 1 only. Strength 2 and strength 3 are saved for reports and analytics only.
+
+UTC Super Admin has a central dashboard to monitor all organizations, completion progress, delayed organizations, notifications, training attendance, exercises, and reports.
+
+The system includes:
+authentication, roles, organizations, children, stories, assessment results, strengths, groups, third-force training sessions, attendance, exercises, exercise schedules, notifications, reports, PDF/Excel export, activity logs, and dashboards.
+
+Use Next.js, TypeScript, Tailwind, Prisma, PostgreSQL, Auth.js, Arabic RTL UI, UTC brand colors, responsive SaaS layout, and strict multi-tenant data isolation.
+```
